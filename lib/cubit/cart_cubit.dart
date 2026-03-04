@@ -15,7 +15,7 @@ class CartCubit extends Cubit<CartState> {
     emit(CartState(updatedCart, updatedTotal));
   }
 
-  Future<bool> processJaibPurchase({
+  Future<WalletApiResponse<void>> processJaibPurchase({
     required String token,
     String? code,
   }) async {
@@ -29,27 +29,26 @@ class CartCubit extends Cubit<CartState> {
         'price': p.price,
       }).toList();
 
-      final success = await WalletApiService().jaibPurchase(
+      final response = await WalletApiService().jaibPurchase(
         token: token,
         amount: state.totalPrice,
         code: code,
         items: itemsMap,
       );
 
-      if (success) {
+      if (response.isSuccess) {
         emit(const CartState([], 0.0));
-        return true;
       } else {
-        emit(CartState(state.cartItems, state.totalPrice)); // Revert visual loading
-        return false;
+        emit(CartState(state.cartItems, state.totalPrice)); 
       }
+      return response;
     } catch (e) {
       emit(CartState(state.cartItems, state.totalPrice));
-      return false;
+      return WalletApiResponse<void>(isSuccess: false, message: e.toString());
     }
   }
 
-  Future<String?> initiateFloosakPurchase({
+  Future<WalletApiResponse<String>> initiateFloosakPurchase({
     required String token,
   }) async {
     emit(CartPurchasing(state.cartItems, state.totalPrice));
@@ -62,21 +61,21 @@ class CartCubit extends Cubit<CartState> {
         'price': p.price,
       }).toList();
 
-      final referenceId = await WalletApiService().floosakInitiatePurchase(
+      final response = await WalletApiService().floosakInitiatePurchase(
         token: token,
         amount: state.totalPrice,
         items: itemsMap,
       );
 
       emit(CartState(state.cartItems, state.totalPrice)); 
-      return referenceId;
+      return response;
     } catch (e) {
       emit(CartState(state.cartItems, state.totalPrice));
-      return null;
+      return WalletApiResponse<String>(isSuccess: false, message: e.toString());
     }
   }
 
-  Future<bool> confirmFloosakPurchase({
+  Future<WalletApiResponse<void>> confirmFloosakPurchase({
     required String token,
     required String referenceId,
     required String otp,
@@ -91,23 +90,22 @@ class CartCubit extends Cubit<CartState> {
         'price': p.price,
       }).toList();
 
-      final success = await WalletApiService().floosakConfirmOtp(
+      final response = await WalletApiService().floosakConfirmOtp(
         token: token,
         referenceId: referenceId,
         otp: otp,
         items: itemsMap,
       );
 
-      if (success) {
+      if (response.isSuccess) {
         emit(const CartState([], 0.0));
-        return true;
       } else {
         emit(CartState(state.cartItems, state.totalPrice));
-        return false;
       }
+      return response;
     } catch (e) {
       emit(CartState(state.cartItems, state.totalPrice));
-      return false;
+      return WalletApiResponse<void>(isSuccess: false, message: e.toString());
     }
   }
 }

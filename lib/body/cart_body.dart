@@ -211,36 +211,37 @@ class _CartBodyState extends State<CartBody> {
       final String? jaibCode = await _showJaibCodeDialog(context);
       if (jaibCode == null || !context.mounted) return;
 
-      final success = await context.read<CartCubit>().processJaibPurchase(
+      final response = await context.read<CartCubit>().processJaibPurchase(
         token: token,
         code: jaibCode,
       );
 
-      if (success && context.mounted) {
+      if (response.isSuccess && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Payment Successful via Jaib!'),
+          SnackBar(
+            content: Text(response.message),
             backgroundColor: Colors.green,
           ),
         );
-      } else if (!success && context.mounted) {
+      } else if (!response.isSuccess && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Payment Failed. Please try again.'),
+          SnackBar(
+            content: Text(response.message),
             backgroundColor: Colors.red,
           ),
         );
       }
     } else if (_selectedWallet == 'floosak') {
-      final referenceId = await context
+      final initiateResponse = await context
           .read<CartCubit>()
           .initiateFloosakPurchase(token: token);
 
-      if (referenceId != null && context.mounted) {
+      if (initiateResponse.isSuccess && initiateResponse.data != null && context.mounted) {
+        final referenceId = initiateResponse.data!;
         final String? otp = await _showFloosakOtpDialog(context);
 
         if (otp != null && context.mounted) {
-          final success = await context
+          final confirmResponse = await context
               .read<CartCubit>()
               .confirmFloosakPurchase(
                 token: token,
@@ -248,17 +249,17 @@ class _CartBodyState extends State<CartBody> {
                 otp: otp,
               );
 
-          if (success && context.mounted) {
+          if (confirmResponse.isSuccess && context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Payment Successful via Floosak!'),
+              SnackBar(
+                content: Text(confirmResponse.message),
                 backgroundColor: Colors.green,
               ),
             );
-          } else if (!success && context.mounted) {
+          } else if (!confirmResponse.isSuccess && context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('OTP Confirmation Failed. Please try again.'),
+              SnackBar(
+                content: Text(confirmResponse.message),
                 backgroundColor: Colors.red,
               ),
             );
@@ -269,8 +270,8 @@ class _CartBodyState extends State<CartBody> {
         }
       } else if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to initiate Floosak purchase.'),
+          SnackBar(
+            content: Text(initiateResponse.message),
             backgroundColor: Colors.red,
           ),
         );

@@ -1,8 +1,33 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
+class ApiException implements Exception {
+  final String message;
+  ApiException(this.message);
+
+  @override
+  String toString() => message;
+}
+
+class WalletApiResponse<T> {
+  final bool isSuccess;
+  final String message;
+  final T? data;
+
+  WalletApiResponse({required this.isSuccess, required this.message, this.data});
+}
+
 class WalletApiService {
   static const String baseUrl = 'https://wallets-workshop.dev-options.com/api';
+
+  String _extractMessage(http.Response response, [String defaultMessage = 'An error occurred']) {
+    try {
+      final data = json.decode(response.body);
+      return data['message'] ?? defaultMessage;
+    } catch (_) {
+      return defaultMessage;
+    }
+  }
 
   Future<String?> register({
     required String name,
@@ -30,7 +55,7 @@ class WalletApiService {
       final Map<String, dynamic> responseData = json.decode(response.body);
       return responseData['data']?['token']?.toString();
     } else {
-      throw Exception('Failed to register: ${response.body}');
+      throw ApiException(_extractMessage(response, 'Failed to register'));
     }
   }
 
@@ -55,11 +80,11 @@ class WalletApiService {
       final Map<String, dynamic> responseData = json.decode(response.body);
       return responseData['data']?['token']?.toString();
     } else {
-      throw Exception('Failed to login: ${response.body}');
+      throw ApiException(_extractMessage(response, 'Failed to login'));
     }
   }
 
-  Future<bool> jaibPurchase({
+  Future<WalletApiResponse<void>> jaibPurchase({
     required String token,
     required double amount,
     String? code,
@@ -90,13 +115,16 @@ class WalletApiService {
 
     if (response.statusCode == 200) {
       final Map<String, dynamic> data = json.decode(response.body);
-      return data['isSuccess'] == true;
+      return WalletApiResponse<void>(
+        isSuccess: data['isSuccess'] == true,
+        message: data['message'] ?? 'Payment processed successfully',
+      );
     } else {
-      throw Exception('Jaib Purchase failed: ${response.body}');
+      throw ApiException(_extractMessage(response, 'Jaib Purchase failed'));
     }
   }
 
-  Future<String?> floosakInitiatePurchase({
+  Future<WalletApiResponse<String>> floosakInitiatePurchase({
     required String token,
     required double amount,
     required List<Map<String, dynamic>> items,
@@ -120,17 +148,18 @@ class WalletApiService {
 
     if (response.statusCode == 200) {
       final Map<String, dynamic> data = json.decode(response.body);
-      if (data['isSuccess'] == true) {
-        return data['data']?['wallet_reference_id']?.toString();
-      } else {
-        throw Exception('Floosak Purchase failed: ${response.body}');
-      }
+      bool isSuccess = data['isSuccess'] == true;
+      return WalletApiResponse<String>(
+        isSuccess: isSuccess,
+        message: data['message'] ?? (isSuccess ? 'Purchase initiated' : 'Failed to initiate purchase'),
+        data: data['data']?['wallet_reference_id']?.toString(),
+      );
     } else {
-      throw Exception('Floosak Purchase failed: ${response.body}');
+      throw ApiException(_extractMessage(response, 'Floosak Purchase failed'));
     }
   }
 
-  Future<bool> floosakConfirmOtp({
+  Future<WalletApiResponse<void>> floosakConfirmOtp({
     required String token,
     required String referenceId,
     required String otp,
@@ -155,9 +184,12 @@ class WalletApiService {
 
     if (response.statusCode == 200) {
       final Map<String, dynamic> data = json.decode(response.body);
-      return data['isSuccess'] == true;
+      return WalletApiResponse<void>(
+        isSuccess: data['isSuccess'] == true,
+        message: data['message'] ?? 'Payment confirmed successfully',
+      );
     } else {
-      throw Exception('Floosak OTP Confirmation failed: ${response.body}');
+      throw ApiException(_extractMessage(response, 'Floosak OTP Confirmation failed'));
     }
   }
 
@@ -177,7 +209,7 @@ class WalletApiService {
       final Map<String, dynamic> data = json.decode(response.body);
       return data['isSuccess'] == true;
     } else {
-      throw Exception('Logout failed: ${response.body}');
+      throw ApiException(_extractMessage(response, 'Logout failed'));
     }
   }
 }
